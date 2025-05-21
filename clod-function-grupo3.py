@@ -9,8 +9,10 @@ from urllib.parse import urljoin
 from google.cloud import storage
 
 # --- Configuración del bucket ---
-BUCKET_NAME = "bucket_grupo3/2024"
-CARPETA_LOCAL = "2024"
+# BUCKET_NAME = "bucket_grupo3/2024"
+# CARPETA_LOCAL = "2024"
+BUCKET_NAME = "bucket_grupo3"
+SUBCARPETA_BUCKET = "2024"
 
 # --- Función para hacer JSON serializable ---
 def convertir_a_serializable(obj):
@@ -77,17 +79,18 @@ def convertir_parquet_a_json(ruta_archivo, max_filas=100000):
 def subir_a_bucket(ruta_local, bucket_name):
     cliente = storage.Client()
     bucket = cliente.bucket(bucket_name)
-    blob = bucket.blob(os.path.basename(ruta_local))
+    # blob = bucket.blob(os.path.basename(ruta_local))
+    blob = bucket.blob(os.path.join(SUBCARPETA_BUCKET, os.path.basename(ruta_local)))
     blob.upload_from_filename(ruta_local)
     print(f"[OK] Archivo subido a bucket: gs://{bucket_name}/{blob.name}")
 
 # --- Flujo principal ---
 def ejecutar_flujo(url):
-    os.makedirs(CARPETA_LOCAL, exist_ok=True)
+    os.makedirs(SUBCARPETA_BUCKET, exist_ok=True)
     links = buscar_links_parquet(url)
 
     for link in links:
-        ruta_parquet = descargar_archivo(link, CARPETA_LOCAL)
+        ruta_parquet = descargar_archivo(link, SUBCARPETA_BUCKET)
         if not ruta_parquet:
             break
 
