@@ -6,7 +6,7 @@ import pyarrow.parquet as pq
 from google.cloud import storage, bigquery
 
 # Patrón para filtrar archivos 2024-MM.parquet (puede ser más estricto si quieres)
-FILENAME_PATTERN = r"^(green_tripdata_2024|fhv_tripdata_2024|yellow_tripdata_2024|fhvhv_tripdata_2024)_\d{2}\.parquet$"
+FILENAME_PATTERN = r"^(green_tripdata|fhv_tripdata|yellow_tripdata|fhvhv_tripdata)_2024-(0[1-9]|1[0-2])\.parquet$"
 
 # Mapear base nombre archivo a tabla BigQuery destino
 TABLES_MAP = {
