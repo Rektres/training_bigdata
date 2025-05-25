@@ -6,7 +6,7 @@ from io import StringIO
 import pyarrow.parquet as pq
 from google.cloud import storage, bigquery
 
-FILENAME_PATTERN = r"(green|yellow|fhv|fhvhv)_tripdata_2024-(0[1-9]|1[0-2])\.parquet$"
+FILENAME_PATTERN = r"^(green_tripdata|fhv_tripdata|yellow_tripdata|fhvhv_tripdata)_2024-(0[1-9]|1[0-2])\.parquet$"
 TABLAS_BIGQUERY = {
     "green_tripdata_2024": "bigdata-458022.3_dev_tlc_us_nyc_bronze.data-trip-green",
     "yellow_tripdata_2024": "bigdata-458022.3_dev_tlc_us_nyc_bronze.data-trip-yellow",
