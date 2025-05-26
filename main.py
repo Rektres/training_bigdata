@@ -109,6 +109,9 @@ def procesar_parquet_a_bigquery(event, context):
     buffer = io.BytesIO(data)
     tabla_parquet = pq.read_table(buffer)
 
+    subset = tabla_parquet.slice(0, 100000)
+    registros = subset.to_pydict()
+    
     if not registros:
         print("[WARN] No se encontraron registros en el archivo parquet.")
         return
