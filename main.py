@@ -35,14 +35,17 @@ def _infer_bq_type(value):
         return "STRING"
         
 def archivo_ya_cargado(tabla_id, archivo_nombre):
+    fecha_actual = datetime.utcnow().date().isoformat()
     query = f"""
         SELECT COUNT(1) AS count
         FROM `{tabla_id}`
         WHERE source_file_name = @archivo_nombre
+          AND load_pt = @fecha_actual
     """
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
-            bigquery.ScalarQueryParameter("archivo_nombre", "STRING", archivo_nombre)
+            bigquery.ScalarQueryParameter("archivo_nombre", "STRING", archivo_nombre),
+            bigquery.ScalarQueryParameter("fecha_actual", "DATE", fecha_actual),
         ]
     )
     query_job = bq_client.query(query, job_config=job_config)
