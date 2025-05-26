@@ -60,8 +60,14 @@ def procesar_parquet_a_bigquery(event, context):
         print(f"[INFO] Archivo ignorado por no coincidir con patrón: {file_name}")
         return
 
-    prefix = file_name.split("-")[0] + "_tripdata_2024"
-    tabla_id = TABLAS_BIGQUERY.get(prefix)
+    # file_name = 'fhv_tripdata_2024-02.parquet'
+    prefix = file_name.split("-")[0]
+
+    if prefix not in TABLAS_BIGQUERY:
+        print(f"[WARN] Prefijo del archivo no tiene tabla configurada: {prefix}")
+        return
+    
+    tabla_id = TABLAS_BIGQUERY[prefix]
 
     if not tabla_id:
         print(f"[WARN] Prefijo del archivo no tiene tabla configurada: {prefix}")
