@@ -42,7 +42,7 @@ def tabla_existe_o_crear(tabla_id, esquema):
         print(f"[WARN] La tabla {tabla_id} no existe. Creando...")
         tabla = bigquery.Table(tabla_id, schema=esquema)
         tabla.time_partitioning = bigquery.TimePartitioning(field="load_pt")
-        bq_client.create_table(tabla)
+        bq_client.create_table(tabla, location="US")  # <-- ubicación explícita
         print(f"[SUCCESS] Tabla {tabla_id} creada correctamente.")
 
 def archivo_ya_cargado(tabla_id, archivo_nombre):
