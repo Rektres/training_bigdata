@@ -52,6 +52,12 @@ def agregar_columnas_faltantes(tabla_id, esquema_nuevo):
         print(f"[INFO] No hay columnas nuevas para agregar a la tabla {tabla_id}")
 
 def archivo_ya_cargado(tabla_id, archivo_nombre, fecha_carga):
+    tabla = bq_client.get_table(tabla_id)
+
+    if not columna_existe_en_tabla(tabla, "source_file_name"):
+        print(f"[INFO] La columna 'source_file_name' no existe en la tabla {tabla_id}, se asume que el archivo no fue cargado.")
+        return False
+        
     query = f"""
         SELECT COUNT(1) as count
         FROM `{tabla_id}`
