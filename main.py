@@ -34,7 +34,16 @@ def _infer_bq_type(value):
     else:
         return "STRING"
         
+def columna_existe_en_tabla(tabla, nombre_columna):
+    return any(field.name == nombre_columna for field in tabla.schema)
+
 def archivo_ya_cargado(tabla_id, archivo_nombre):
+    tabla = bq_client.get_table(tabla_id)
+
+    if not columna_existe_en_tabla(tabla, "source_file_name"):
+        print(f"[INFO] La columna 'source_file_name' no existe en la tabla {tabla_id}, se asume que el archivo no fue cargado.")
+        return False
+
     fecha_actual = datetime.utcnow().date().isoformat()
     query = f"""
         SELECT COUNT(1) AS count
@@ -53,6 +62,7 @@ def archivo_ya_cargado(tabla_id, archivo_nombre):
     for row in results:
         return row.count > 0
     return False
+
 
 def agregar_columnas_faltantes(tabla_id, esquema_nuevo):
     """Agrega las columnas que no existan en la tabla BigQuery dada."""
