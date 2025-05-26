@@ -51,6 +51,9 @@ def agregar_columnas_faltantes(tabla_id, esquema_nuevo):
     else:
         print(f"[INFO] No hay columnas nuevas para agregar a la tabla {tabla_id}")
 
+def columna_existe_en_tabla(tabla, nombre_columna):
+    return any(field.name == nombre_columna for field in tabla.schema)
+    
 def archivo_ya_cargado(tabla_id, archivo_nombre, fecha_carga):
     tabla = bq_client.get_table(tabla_id)
 
