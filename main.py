@@ -33,6 +33,23 @@ def _infer_bq_type(value):
         return "TIMESTAMP"
     else:
         return "STRING"
+        
+def archivo_ya_cargado(tabla_id, archivo_nombre):
+    query = f"""
+        SELECT COUNT(1) AS count
+        FROM `{tabla_id}`
+        WHERE source_file_name = @archivo_nombre
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("archivo_nombre", "STRING", archivo_nombre)
+        ]
+    )
+    query_job = bq_client.query(query, job_config=job_config)
+    results = query_job.result()
+    for row in results:
+        return row.count > 0
+    return False
 
 def agregar_columnas_faltantes(tabla_id, esquema_nuevo):
     """Agrega las columnas que no existan en la tabla BigQuery dada."""
@@ -72,7 +89,11 @@ def procesar_parquet_a_bigquery(event, context):
     if not tabla_id:
         print(f"[WARN] Prefijo del archivo no tiene tabla configurada: {prefix}")
         return
-
+        
+    if archivo_ya_cargado(tabla_id, file_name):
+    print(f"[INFO] El archivo {file_name} ya fue cargado anteriormente. Saltando...")
+    return
+    
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(file_name)
     local_path = f"/tmp/{os.path.basename(file_name)}"
