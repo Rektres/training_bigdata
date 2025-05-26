@@ -4,7 +4,7 @@ from datetime import datetime, date
 from io import StringIO
 import pyarrow.parquet as pq
 import gcsfs
-from google.cloud import bigquery
+from google.cloud import bigquery, storage
 
 FILENAME_PATTERN = r"^(green_tripdata|fhv_tripdata|yellow_tripdata|fhvhv_tripdata)_2024-(0[1-9]|1[0-2])\.parquet$"
 TABLAS_BIGQUERY = {
@@ -15,7 +15,6 @@ TABLAS_BIGQUERY = {
 }
 
 bq_client = bigquery.Client()
-fs = gcsfs.GCSFileSystem()
 
 def convertir_a_serializable(obj):
     if isinstance(obj, (datetime, date)):
@@ -100,12 +99,15 @@ def procesar_parquet_a_bigquery(event, context):
         print(f"[INFO] El archivo {file_name} ya fue cargado hoy ({fecha_actual}). Saltando...")
         return
 
-    gcs_path = f"gs://{bucket_name}/{file_name}"
-    with fs.open(gcs_path, 'rb') as f:
-        tabla_parquet = pq.read_table(f)
+    # Leer con google-cloud-storage sin gcsfs
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(file_name)
+    data = blob.download_as_bytes()  # descargar en memoria
 
-    subset = tabla_parquet.slice(0, 100000)
-    registros = subset.to_pydict()
+    import io
+    buffer = io.BytesIO(data)
+    tabla_parquet = pq.read_table(buffer)
 
     if not registros:
         print("[WARN] No se encontraron registros en el archivo parquet.")
