@@ -34,32 +34,23 @@ def _infer_bq_type(value):
     else:
         return "STRING"
 
-def tabla_existe_o_crear(tabla_id, esquema):
-    try:
-        bq_client.get_table(tabla_id)
-        print(f"[INFO] La tabla {tabla_id} ya existe.")
-    except Exception:
-        print(f"[WARN] La tabla {tabla_id} no existe. Creando...")
-        tabla = bigquery.Table(tabla_id, schema=esquema)
-        tabla.time_partitioning = bigquery.TimePartitioning(field="load_pt")
-        bq_client.create_table(tabla, location="US")  # <-- ubicación explícita
-        print(f"[SUCCESS] Tabla {tabla_id} creada correctamente.")
+def agregar_columnas_faltantes(tabla_id, esquema_nuevo):
+    """Agrega las columnas que no existan en la tabla BigQuery dada."""
+    tabla = bq_client.get_table(tabla_id)
+    esquema_existente = {field.name.lower(): field for field in tabla.schema}
 
-def archivo_ya_cargado(tabla_id, archivo_nombre):
-    query = f"""
-        SELECT COUNT(1) as count
-        FROM `{tabla_id}`
-        WHERE source_file_name = @archivo_nombre
-    """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[bigquery.ScalarQueryParameter("archivo_nombre", "STRING", archivo_nombre)]
-    )
-    query_job = bq_client.query(query, job_config=job_config)
-    results = query_job.result()
-    for row in results:
-        return row.count > 0
-    return False
+    columnas_a_agregar = []
+    for campo in esquema_nuevo:
+        if campo.name.lower() not in esquema_existente:
+            columnas_a_agregar.append(campo)
 
+    if columnas_a_agregar:
+        esquema_actualizado = tabla.schema[:] + columnas_a_agregar
+        tabla.schema = esquema_actualizado
+        tabla = bq_client.update_table(tabla, ["schema"])
+        print(f"[INFO] Se agregaron {len(columnas_a_agregar)} columnas a la tabla {tabla_id}")
+    else:
+        print(f"[INFO] No hay columnas nuevas para agregar a la tabla {tabla_id}")
 def procesar_parquet_a_bigquery(event, context):
     bucket_name = event['bucket']
     file_name = event['name']
@@ -69,21 +60,11 @@ def procesar_parquet_a_bigquery(event, context):
         print(f"[INFO] Archivo ignorado por no coincidir con patrón: {file_name}")
         return
 
-    match = re.match(r"^(green_tripdata|fhv_tripdata|yellow_tripdata|fhvhv_tripdata)_2024", file_name)
-    prefix = match.group(0) if match else None
-    
-    if not prefix or prefix not in TABLAS_BIGQUERY:
-        print(f"[WARN] Prefijo del archivo no tiene tabla configurada: {prefix}")
-        return
-    
-    tabla_id = TABLAS_BIGQUERY[prefix]
+    prefix = file_name.split("-")[0] + "_tripdata_2024"
+    tabla_id = TABLAS_BIGQUERY.get(prefix)
 
     if not tabla_id:
         print(f"[WARN] Prefijo del archivo no tiene tabla configurada: {prefix}")
-        return
-
-    if archivo_ya_cargado(tabla_id, file_name):
-        print(f"[INFO] El archivo {file_name} ya fue cargado anteriormente. Saltando...")
         return
 
     bucket = storage_client.bucket(bucket_name)
@@ -92,8 +73,8 @@ def procesar_parquet_a_bigquery(event, context):
     blob.download_to_filename(local_path)
     print(f"[INFO] Archivo descargado a: {local_path}")
 
-    tabla = pq.read_table(local_path)
-    subset = tabla.slice(0, 100000)
+    tabla_parquet = pq.read_table(local_path)
+    subset = tabla_parquet.slice(0, 100000)
     registros = subset.to_pydict()
 
     if not registros:
@@ -108,20 +89,21 @@ def procesar_parquet_a_bigquery(event, context):
 
     print(f"[INFO] {len(json_data)} registros listos para cargar a BigQuery.")
 
-    esquema = [
+    esquema_nuevo = [
         bigquery.SchemaField(col, _infer_bq_type(val[0]))
-        for col, val in registros.items() if not col.upper().startswith("_FILE_")
+        for col, val in registros.items()
+        if not col.upper().startswith("_FILE_")
     ]
-    esquema.append(bigquery.SchemaField("load_pt", "DATE"))
-    esquema.append(bigquery.SchemaField("source_file_name", "STRING"))
+    esquema_nuevo.append(bigquery.SchemaField("load_pt", "DATE"))
+    esquema_nuevo.append(bigquery.SchemaField("source_file_name", "STRING"))
 
-    tabla_existe_o_crear(tabla_id, esquema)
+    agregar_columnas_faltantes(tabla_id, esquema_nuevo)
 
     json_str = "\n".join([json.dumps(row, default=convertir_a_serializable) for row in json_data])
     json_file = StringIO(json_str)
 
     job_config = bigquery.LoadJobConfig(
-        schema=esquema,
+        schema=esquema_nuevo,
         write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
         source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
         time_partitioning=bigquery.TimePartitioning(field="load_pt"),
