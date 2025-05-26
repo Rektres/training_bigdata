@@ -91,8 +91,8 @@ def procesar_parquet_a_bigquery(event, context):
         return
         
     if archivo_ya_cargado(tabla_id, file_name):
-    print(f"[INFO] El archivo {file_name} ya fue cargado anteriormente. Saltando...")
-    return
+        print(f"[INFO] El archivo {file_name} ya fue cargado anteriormente. Saltando...")
+        return
     
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(file_name)
