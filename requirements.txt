@@ -1,3 +1,4 @@
+gcsfs
+pyarrow
 google-cloud-storage
 google-cloud-bigquery
-pyarrow
