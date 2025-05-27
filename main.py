@@ -60,8 +60,11 @@ def agregar_columnas_faltantes(tabla_id, esquema_nuevo):
     except Exception as e:
         print(f"[ERROR] Error al agregar columnas a la tabla {tabla_id}: {e}")
 
-# Verifica si el archivo ya ha sido cargado previamente consultando por source_file_name
 def archivo_ya_cargado(tabla_id, archivo_nombre):
+    """
+    Verifica si un archivo ya fue cargado previamente a la tabla de BigQuery,
+    buscando por 'source_file_name' y asegurando que exista cualquier 'load_pt'.
+    """
     try:
         tabla = bq_client.get_table(tabla_id)
 
@@ -69,10 +72,12 @@ def archivo_ya_cargado(tabla_id, archivo_nombre):
             print(f"[INFO] La columna 'source_file_name' no existe en la tabla {tabla_id}, se asume que el archivo no fue cargado.")
             return False
 
+        # Consulta para saber si ya existe un registro con ese archivo cargado
         query = f"""
             SELECT COUNT(1) as count
             FROM `{tabla_id}`
             WHERE source_file_name = @archivo_nombre
+              AND load_pt IS NOT NULL
         """
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
@@ -81,12 +86,14 @@ def archivo_ya_cargado(tabla_id, archivo_nombre):
         )
         query_job = bq_client.query(query, job_config=job_config)
         results = query_job.result()
+
         for row in results:
             return row.count > 0
         return False
     except Exception as e:
         print(f"[ERROR] Error al verificar si el archivo ya fue cargado: {e}")
         return False
+
 
 # Función principal que se dispara cuando se sube un archivo al bucket
 def procesar_parquet_a_bigquery(event, context):
