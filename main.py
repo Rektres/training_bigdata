@@ -139,6 +139,7 @@ def cargar_datos_a_bigquery(tabla_id, tabla_parquet, file_name, batch_size=10000
         return False
 
 def procesar_parquet_a_bigquery(event, context):
+    tabla_id = None  # ← Aseguramos la existencia de la variable
     try:
         bucket_name = event['bucket']
         file_name = event['name']
@@ -168,7 +169,9 @@ def procesar_parquet_a_bigquery(event, context):
             print(f"[WARN] Prefijo del archivo no tiene tabla configurada: {prefix}")
             print(f"[DEBUG] Tablas configuradas: {list(TABLAS_BIGQUERY.keys())}")
             return
-
+        
+        tabla_id = TABLAS_BIGQUERY[prefix]  # ← Aquí se asigna
+        
         storage_client = storage.Client()
         bucket = storage_client.bucket(bucket_name)
         blob = bucket.blob(file_name)
@@ -196,4 +199,7 @@ def procesar_parquet_a_bigquery(event, context):
         print(f"[SUCCESS] Procesamiento completado para {file_name}")
 
     except Exception as e:
-        print(f"[ERROR] Error general en el procesamiento del archivo {file_name}: {e}")
+        if tabla_id:
+            print(f"[ERROR] Error general en el procesamiento del archivo {file_name} para tabla {tabla_id}: {e}")
+        else:
+            print(f"[ERROR] Error general en el procesamiento del archivo {file_name}: {e}")
