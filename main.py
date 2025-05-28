@@ -144,7 +144,7 @@ def procesar_parquet_a_bigquery(event, context):
         file_name = event['name']
         print(f"[DEBUG] Evento recibido para archivo: {file_name} en bucket: {bucket_name}")
 
-         # Validar que el archivo esté en la ruta correcta
+        # Validar que el archivo esté en la ruta correcta
         if not file_name.startswith('data-trip-2024/'):
             print(f"[INFO] Archivo ignorado por no estar en la ruta data-trip-2024/: {file_name}")
             return
@@ -156,14 +156,17 @@ def procesar_parquet_a_bigquery(event, context):
             print(f"[INFO] Archivo ignorado por no coincidir con patrón: {file_name}")
             return
 
-        prefix = "_".join(file_name.split("_")[:2])
+        # Extraer solo el nombre del archivo (sin la ruta)
+        base_name = file_name.split('/')[-1]
+        # Extraer prefijo correctamente (primeras dos partes separadas por _)
+        prefix = "_".join(base_name.split("_")[:2])
+        
+        print(f"[DEBUG] Nombre base del archivo: {base_name}")
+        print(f"[DEBUG] Prefijo extraído: {prefix}")
+        
         if prefix not in TABLAS_BIGQUERY:
             print(f"[WARN] Prefijo del archivo no tiene tabla configurada: {prefix}")
-            return
-
-        tabla_id = TABLAS_BIGQUERY[prefix]
-        if archivo_ya_cargado(tabla_id, file_name):
-            print(f"[INFO] El archivo {file_name} ya fue cargado previamente. Saltando...")
+            print(f"[DEBUG] Tablas configuradas: {list(TABLAS_BIGQUERY.keys())}")
             return
 
         storage_client = storage.Client()
