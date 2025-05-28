@@ -6,7 +6,7 @@ import pyarrow.parquet as pq
 import gcsfs
 from google.cloud import bigquery, storage
 
-FILENAME_PATTERN = r"^(green_tripdata|fhv_tripdata|yellow_tripdata|fhvhv_tripdata)_2024-(0[1-9]|1[0-2])\.parquet$"
+FILENAME_PATTERN = r"^data-trip-2024/(green_tripdata|fhv_tripdata|yellow_tripdata|fhvhv_tripdata)_2024-(0[1-9]|1[0-2])\.parquet$"
 
 TABLAS_BIGQUERY = {
     "green_tripdata": "bigdata-458022.3_dev_tlc_us_nyc_bronze.data-trip-green",
@@ -144,6 +144,11 @@ def procesar_parquet_a_bigquery(event, context):
         file_name = event['name']
         print(f"[DEBUG] Evento recibido para archivo: {file_name} en bucket: {bucket_name}")
 
+         # Validar que el archivo esté en la ruta correcta
+        if not file_name.startswith('data-trip-2024/'):
+            print(f"[INFO] Archivo ignorado por no estar en la ruta data-trip-2024/: {file_name}")
+            return
+            
         if not re.search(FILENAME_PATTERN, file_name):
             print(f"[INFO] Archivo ignorado por no coincidir con patrón: {file_name}")
             return
