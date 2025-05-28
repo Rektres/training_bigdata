@@ -81,6 +81,7 @@ def tipos_datos_coinciden(tabla_id, tabla_parquet):
                 'string': 'string',
                 'bool': 'boolean',
                 'timestamp[ms]': 'timestamp',
+                'timestamp[us]': 'timestamp',  
                 'date32': 'date'
             }
 
