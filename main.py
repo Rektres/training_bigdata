@@ -150,6 +150,9 @@ def procesar_parquet_a_bigquery(event, context):
             return
             
         if not re.search(FILENAME_PATTERN, file_name):
+            print(f"[DEBUG] Validando patrón para: {file_name}")
+            print(f"[DEBUG] Patrón usado: {FILENAME_PATTERN}")
+            print(f"[DEBUG] Resultado match: {bool(re.search(FILENAME_PATTERN, file_name))}")
             print(f"[INFO] Archivo ignorado por no coincidir con patrón: {file_name}")
             return
 
