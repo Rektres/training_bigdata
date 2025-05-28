@@ -6,7 +6,7 @@ import pyarrow.parquet as pq
 import gcsfs
 from google.cloud import bigquery, storage
 
-FILENAME_PATTERN = r"^data-trip-2024/(green_tripdata|fhv_tripdata|yellow_tripdata|fhvhv_tripdata)_2024-(0[1-9]|1[0-2])\.parquet$"
+FILENAME_PATTERN = r"^(green_tripdata|fhv_tripdata|yellow_tripdata|fhvhv_tripdata)_2024-(0[1-9]|1[0-2])\.parquet$"
 
 TABLAS_BIGQUERY = {
     "green_tripdata": "bigdata-458022.3_dev_tlc_us_nyc_bronze.data-trip-green",
