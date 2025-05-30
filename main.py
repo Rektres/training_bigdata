@@ -181,7 +181,11 @@ def procesar_parquet_a_bigquery(event, context):
         if not tipos_datos_coinciden(tabla_id, tabla_parquet):
             print(f"[ERROR] Los tipos de datos del archivo {file_name} NO coinciden con los de la tabla {tabla_id}.")
             return
-
+            
+        if archivo_ya_cargado(tabla_id, file_name):
+            print(f"[INFO] El archivo {file_name} ya fue cargado previamente en la tabla {tabla_id}, omitiendo carga.")
+            return
+    
         if not cargar_datos_a_bigquery(tabla_id, tabla_parquet, file_name):
             print(f"[ERROR] Falló la carga de datos para {file_name}")
             return
