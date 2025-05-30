@@ -24,12 +24,21 @@ def columnas_iguales(tabla_id, columnas_parquet):
     try:
         tabla = bq_client.get_table(tabla_id)
         columnas_tabla = {field.name.lower() for field in tabla.schema} - {"load_pt", "source_file_name"}
-        columnas_parquet = {col.lower() for col in columnas_parquet}
-        return columnas_tabla == columnas_parquet
+        columnas_parquet_set = {col.lower() for col in columnas_parquet}
+
+        faltantes = columnas_tabla - columnas_parquet_set
+        sobrantes = columnas_parquet_set - columnas_tabla
+
+        if faltantes:
+            print(f"[ERROR] Faltan columnas en Parquet respecto a la tabla: {faltantes}")
+        if sobrantes:
+            print(f"[ERROR] Sobran columnas en Parquet que no están en la tabla: {sobrantes}")
+
+        return not faltantes and not sobrantes
+
     except Exception as e:
         print(f"[ERROR] No se pudo validar columnas: {e}")
         return False
-
 
 def archivo_ya_cargado(tabla_id, archivo_nombre):
     try:
@@ -103,16 +112,56 @@ def tipos_datos_coinciden(tabla_id, tabla_parquet):
     except Exception as e:
         print(f"[ERROR] Error al validar tipos de datos: {e}")
         return False
+        
+def crear_tabla_si_no_existe(tabla_id, tabla_parquet):
+    try:
+        bq_client.get_table(tabla_id)
+        print(f"[INFO] La tabla {tabla_id} ya existe.")
+        return True
+    except Exception:
+        print(f"[INFO] La tabla {tabla_id} no existe, creando...")
+
+        schema_bq = []
+        for field in tabla_parquet.schema:
+            nombre = field.name
+            tipo_parquet = str(field.type).lower()
+
+            mapeo_tipos = {
+                'int32': 'INT64',
+                'int64': 'INT64',
+                'float32': 'FLOAT64',
+                'float64': 'FLOAT64',
+                'double': 'FLOAT64',
+                'string': 'STRING',
+                'large_string': 'STRING',
+                'bool': 'BOOL',
+                'timestamp[ms]': 'TIMESTAMP',
+                'timestamp[us]': 'TIMESTAMP',
+                'date32': 'DATE'
+            }
+
+            tipo_bq = mapeo_tipos.get(tipo_parquet, 'STRING')
+            schema_bq.append(bigquery.SchemaField(nombre, tipo_bq))
+
+        # Agregar columnas extra para control
+        schema_bq.append(bigquery.SchemaField('load_pt', 'TIMESTAMP'))
+        schema_bq.append(bigquery.SchemaField('source_file_name', 'STRING'))
+
+        tabla = bigquery.Table(tabla_id, schema=schema_bq)
+        tabla = bq_client.create_table(tabla)
+        print(f"[SUCCESS] Tabla {tabla_id} creada con esquema dinámico.")
+        return True
 
 def cargar_datos_a_bigquery(tabla_id, tabla_parquet, file_name, batch_size=100000):
     try:
-        tabla_bq = bq_client.get_table(tabla_id)
-        df = tabla_parquet.slice(0, batch_size).to_pandas()
-
-        if len(df) == 0:
-            print("[INFO] No hay registros para cargar")
+        df = tabla_parquet.to_pandas()
+        if df.empty:
+            print("[INFO] El archivo Parquet no contiene datos, se omite la carga.")
             return True
 
+        tabla_bq = bq_client.get_table(tabla_id)
+
+        # Insertar columnas de control
         current_time = datetime.utcnow()
         df.insert(0, 'load_pt', current_time)
         df['source_file_name'] = file_name
@@ -146,9 +195,6 @@ def procesar_parquet_a_bigquery(event, context):
             return
 
         if not re.search(FILENAME_PATTERN, file_name):
-            print(f"[DEBUG] Validando patrón para: {file_name}")
-            print(f"[DEBUG] Patrón usado: {FILENAME_PATTERN}")
-            print(f"[DEBUG] Resultado match: {bool(re.search(FILENAME_PATTERN, file_name))}")
             print(f"[INFO] Archivo ignorado por no coincidir con patrón: {file_name}")
             return
 
@@ -160,7 +206,6 @@ def procesar_parquet_a_bigquery(event, context):
 
         if prefix not in TABLAS_BIGQUERY:
             print(f"[WARN] Prefijo del archivo no tiene tabla configurada: {prefix}")
-            print(f"[DEBUG] Tablas configuradas: {list(TABLAS_BIGQUERY.keys())}")
             return
 
         tabla_id = TABLAS_BIGQUERY[prefix]
@@ -174,6 +219,11 @@ def procesar_parquet_a_bigquery(event, context):
         buffer = io.BytesIO(data)
         tabla_parquet = pq.read_table(buffer)
 
+        # Crear tabla si no existe
+        if not crear_tabla_si_no_existe(tabla_id, tabla_parquet):
+            print(f"[ERROR] No se pudo crear la tabla {tabla_id}")
+            return
+
         if not columnas_iguales(tabla_id, tabla_parquet.schema.names):
             print(f"[ERROR] Las columnas del archivo {file_name} NO coinciden con las de la tabla {tabla_id}.")
             return
@@ -185,7 +235,7 @@ def procesar_parquet_a_bigquery(event, context):
         if archivo_ya_cargado(tabla_id, file_name):
             print(f"[INFO] El archivo {file_name} ya fue cargado previamente en la tabla {tabla_id}, omitiendo carga.")
             return
-    
+
         if not cargar_datos_a_bigquery(tabla_id, tabla_parquet, file_name):
             print(f"[ERROR] Falló la carga de datos para {file_name}")
             return
